@@ -3,7 +3,7 @@
 import React from "react";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { CheckoutStep } from "@/types/types";
+import { CheckoutStep } from "@/app/checkout/types";
 
 interface CheckoutStepperProps {
   currentStep: CheckoutStep;
@@ -13,8 +13,7 @@ const steps: {
   key: CheckoutStep;
   label: string;
 }[] = [
-  { key: "information", label: "Information" },
-  { key: "shipping", label: "Shipping" },
+  { key: "address", label: "Address" },
   { key: "payment", label: "Payment" },
 ];
 

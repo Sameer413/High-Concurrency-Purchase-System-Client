@@ -1,30 +1,25 @@
 "use client";
 
 import React from "react";
+import { UseFormReturn } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
-
-interface CheckoutFormData {
-  email: string;
-  phone: string;
-  firstName: string;
-  lastName: string;
-  country: string;
-  stateRegion: string;
-  address: string;
-  city: string;
-  postalCode: string;
-}
+import { CheckoutFormData } from "@/schemas/checkout.schema";
 
 interface InformationStepProps {
-  formData: CheckoutFormData;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  form: UseFormReturn<CheckoutFormData>;
+  isProcessing?: boolean;
 }
 
 export default function InformationStep({
-  formData,
-  onChange,
+  form,
+  isProcessing = false,
 }: InformationStepProps) {
+  const {
+    register,
+    formState: { errors },
+  } = form;
+
   return (
     <div className="space-y-8">
       {/* Contact Info */}
@@ -33,26 +28,41 @@ export default function InformationStep({
 
         <FieldGroup>
           <Field>
-            <FieldLabel>Email</FieldLabel>
+            <FieldLabel htmlFor="email">
+              Email <span className="text-red-500">*</span>
+            </FieldLabel>
             <Input
+              id="email"
               type="email"
-              name="email"
-              value={formData.email}
-              onChange={onChange}
               placeholder="your@email.com"
-              required
+              disabled={isProcessing}
+              className={errors.email ? "border-red-500" : ""}
+              {...register("email")}
             />
+            {errors.email && (
+              <p className="text-sm text-red-500 mt-1">
+                {errors.email.message}
+              </p>
+            )}
           </Field>
 
           <Field>
-            <FieldLabel>Phone</FieldLabel>
+            <FieldLabel htmlFor="phone">
+              Phone <span className="text-red-500">*</span>
+            </FieldLabel>
             <Input
+              id="phone"
               type="tel"
-              name="phone"
-              value={formData.phone}
-              onChange={onChange}
               placeholder="+91 98765 43210"
+              disabled={isProcessing}
+              className={errors.phone ? "border-red-500" : ""}
+              {...register("phone")}
             />
+            {errors.phone && (
+              <p className="text-sm text-red-500 mt-1">
+                {errors.phone.message}
+              </p>
+            )}
           </Field>
         </FieldGroup>
       </section>
@@ -64,79 +74,129 @@ export default function InformationStep({
         <FieldGroup>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field>
-              <FieldLabel>First Name</FieldLabel>
+              <FieldLabel htmlFor="firstName">
+                First Name <span className="text-red-500">*</span>
+              </FieldLabel>
               <Input
-                name="firstName"
-                value={formData.firstName}
-                onChange={onChange}
-                required
+                id="firstName"
+                disabled={isProcessing}
+                className={errors.firstName ? "border-red-500" : ""}
+                {...register("firstName")}
               />
+              {errors.firstName && (
+                <p className="text-sm text-red-500 mt-1">
+                  {errors.firstName.message}
+                </p>
+              )}
             </Field>
 
             <Field>
-              <FieldLabel>Last Name</FieldLabel>
+              <FieldLabel htmlFor="lastName">
+                Last Name <span className="text-red-500">*</span>
+              </FieldLabel>
               <Input
-                name="lastName"
-                value={formData.lastName}
-                onChange={onChange}
-                required
+                id="lastName"
+                disabled={isProcessing}
+                className={errors.lastName ? "border-red-500" : ""}
+                {...register("lastName")}
               />
+              {errors.lastName && (
+                <p className="text-sm text-red-500 mt-1">
+                  {errors.lastName.message}
+                </p>
+              )}
             </Field>
           </div>
 
           <Field>
-            <FieldLabel>Country</FieldLabel>
+            <FieldLabel htmlFor="country">
+              Country <span className="text-red-500">*</span>
+            </FieldLabel>
             <Input
-              name="country"
-              value={formData.country}
-              onChange={onChange}
+              id="country"
               placeholder="India"
-              required
+              disabled={isProcessing}
+              className={errors.country ? "border-red-500" : ""}
+              {...register("country")}
             />
+            {errors.country && (
+              <p className="text-sm text-red-500 mt-1">
+                {errors.country.message}
+              </p>
+            )}
           </Field>
 
           <Field>
-            <FieldLabel>State / Region</FieldLabel>
+            <FieldLabel htmlFor="stateRegion">
+              State / Region <span className="text-red-500">*</span>
+            </FieldLabel>
             <Input
-              name="stateRegion"
-              value={formData.stateRegion}
-              onChange={onChange}
+              id="stateRegion"
               placeholder="Maharashtra"
+              disabled={isProcessing}
+              className={errors.stateRegion ? "border-red-500" : ""}
+              {...register("stateRegion")}
             />
+            {errors.stateRegion && (
+              <p className="text-sm text-red-500 mt-1">
+                {errors.stateRegion.message}
+              </p>
+            )}
           </Field>
 
           <Field>
-            <FieldLabel>Address</FieldLabel>
+            <FieldLabel htmlFor="address">
+              Address <span className="text-red-500">*</span>
+            </FieldLabel>
             <Input
-              name="address"
-              value={formData.address}
-              onChange={onChange}
+              id="address"
               placeholder="Street address"
-              required
+              disabled={isProcessing}
+              className={errors.address ? "border-red-500" : ""}
+              {...register("address")}
             />
+            {errors.address && (
+              <p className="text-sm text-red-500 mt-1">
+                {errors.address.message}
+              </p>
+            )}
           </Field>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field>
-              <FieldLabel>City</FieldLabel>
+              <FieldLabel htmlFor="city">
+                City <span className="text-red-500">*</span>
+              </FieldLabel>
               <Input
-                name="city"
-                value={formData.city}
-                onChange={onChange}
+                id="city"
                 placeholder="Pune"
-                required
+                disabled={isProcessing}
+                className={errors.city ? "border-red-500" : ""}
+                {...register("city")}
               />
+              {errors.city && (
+                <p className="text-sm text-red-500 mt-1">
+                  {errors.city.message}
+                </p>
+              )}
             </Field>
 
             <Field>
-              <FieldLabel>Postal Code</FieldLabel>
+              <FieldLabel htmlFor="postalCode">
+                Postal Code <span className="text-red-500">*</span>
+              </FieldLabel>
               <Input
-                name="postalCode"
-                value={formData.postalCode}
-                onChange={onChange}
+                id="postalCode"
                 placeholder="411001"
-                required
+                disabled={isProcessing}
+                className={errors.postalCode ? "border-red-500" : ""}
+                {...register("postalCode")}
               />
+              {errors.postalCode && (
+                <p className="text-sm text-red-500 mt-1">
+                  {errors.postalCode.message}
+                </p>
+              )}
             </Field>
           </div>
         </FieldGroup>

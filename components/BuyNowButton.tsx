@@ -34,7 +34,7 @@ export function BuyNowButton({
   const router = useRouter();
   const [error, setError] = useState<string>("");
 
-  const [handleBuyNowMutation, { isLoading, error: mutationError }] =
+  const [handleBuyNowMutation, { data, isLoading, error: mutationError }] =
     useBuyNowMutation();
 
   const handleBuyNow = async () => {
@@ -48,7 +48,6 @@ export function BuyNowButton({
         quantity,
       }).unwrap();
 
-      console.log("✅ Buy request result:", result);
       if (result.success || result.data?.success) {
         console.log("✅ Success - navigating to checkout");
         // Notify parent of success to skip refetches
@@ -69,17 +68,14 @@ export function BuyNowButton({
         };
 
         // Encode the product data and navigate to checkout
-        const productData = encodeURIComponent(JSON.stringify(checkoutItem));
-        router.push(`/checkout?buyNow=true&product=${productData}`);
+        router.push(
+          `/checkout?buyNow=true&productId=${product.id}&reservationId=${data?.data.reservationId}`,
+        );
       } else {
-        console.log("❌ Not successful:", result);
-        const available = result.data?.availableStock ?? 0;
-        setError(`Only ${available} items available`);
+        // const available = result.data?.availableStock ?? 0;
+        const available = result.data?.success ? 0 : 0;
       }
     } catch (err: any) {
-      console.log("❌ Buy request failed:", err);
-      console.log("❌ Error data:", err?.data);
-      // console.error("Buy now failed:", err);
       setError(
         err?.data?.message || "Failed to reserve stock. Please try again.",
       );

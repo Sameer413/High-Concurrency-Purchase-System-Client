@@ -1,4 +1,4 @@
-export type CheckoutStep = "information" | "shipping" | "payment";
+export type CheckoutStep = "address" | "payment";
 
 export interface CartItem {
   productId: string;
@@ -13,15 +13,4 @@ export interface CartItem {
   selectedColor: string;
 }
 
-export interface CheckoutFormData {
-  email: string;
-  phone: string;
-  firstName: string;
-  lastName: string;
-  country: string;
-  stateRegion: string;
-  address: string;
-  city: string;
-  postalCode: string;
-  agreeToTerms: boolean;
-}
+// CheckoutFormData is now exported from schemas/checkout.schema.ts

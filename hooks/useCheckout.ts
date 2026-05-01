@@ -2,40 +2,46 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { CartItem, CheckoutStep } from "../app/checkout/types";
 import {
-  CartItem,
+  checkoutFormSchema,
   CheckoutFormData,
-  CheckoutStep,
-} from "../app/checkout/types";
-// import { useGetProductAvailabilityQuery } from "@/features/products/productsApi";
+} from "../schemas/checkout.schema";
 
 export function useCheckout() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [currentStep, setCurrentStep] = useState<CheckoutStep>("information");
+  const [currentStep, setCurrentStep] = useState<CheckoutStep>("address");
   const [stockErrors, setStockErrors] = useState<string[]>([]);
-
-  const [formData, setFormData] = useState<CheckoutFormData>({
-    email: "",
-    phone: "",
-    firstName: "",
-    lastName: "",
-    country: "",
-    stateRegion: "",
-    address: "",
-    city: "",
-    postalCode: "",
-    agreeToTerms: false,
-  });
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const isBuyNow = searchParams.get("buyNow") === "true";
+
+  // Initialize React Hook Form with Zod validation
+  const form = useForm<CheckoutFormData>({
+    resolver: zodResolver(checkoutFormSchema),
+    defaultValues: {
+      email: "sameernimje844@gmail.com",
+      phone: "8208643722",
+      firstName: "Sameer",
+      lastName: "Nimje",
+      country: "India",
+      stateRegion: "Maharashtra",
+      address: "123 Main Street",
+      city: "Mumbai",
+      postalCode: "400001",
+    },
+    mode: "onBlur", // Validate on blur for better UX
+  });
 
   // Get product data from URL for buy now
   useEffect(() => {
     if (isBuyNow) {
-      const productParam = searchParams.get("product");
+      const productParam = searchParams.get("reservationId");
       if (productParam) {
         try {
           const productData = JSON.parse(decodeURIComponent(productParam));
@@ -55,62 +61,102 @@ export function useCheckout() {
   // Validate stock availability for all cart items
   const validateStock = async () => {
     const errors: string[] = [];
-    
-    for (const item of cart) {
-      try {
-        const response = await fetch(`/api/products/${item.productId}/availability`);
-        const data = await response.json();
-        
-        if (!data.data.canBuy || data.data.availableStock < item.quantity) {
-          errors.push(
-            `${item.product.name}: Only ${data.data.availableStock} available (requested ${item.quantity})`
-          );
-        }
-      } catch (error) {
-        errors.push(`${item.product.name}: Unable to verify stock`);
-      }
-    }
-    
+
+    // TODO: Validate reservation
+
     setStockErrors(errors);
     return errors.length === 0;
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
+  // Handle address form submission
+  const handleAddressSubmit = async (data: CheckoutFormData) => {
+    setIsProcessing(true);
 
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    if (currentStep === "information") {
-      // Validate stock before proceeding
+    try {
+      // Validate stock before proceeding to payment
       const stockValid = await validateStock();
       if (!stockValid) {
-        return; // Don't proceed if stock validation fails
+        setIsProcessing(false);
+        return;
       }
-      setCurrentStep("shipping");
-      return;
-    }
 
-    if (currentStep === "shipping") {
+      // Move to payment step
       setCurrentStep("payment");
-      return;
+    } catch (error) {
+      console.error("Error during address submission:", error);
+    } finally {
+      setIsProcessing(false);
     }
+  };
 
-    // Final stock validation before payment
-    const stockValid = await validateStock();
-    if (!stockValid) {
-      setCurrentStep("information");
-      return;
+  // Handle payment and order creation
+  const handlePaymentSubmit = async (paymentData: any) => {
+    setIsProcessing(true);
+
+    try {
+      // Final stock validation before payment
+      const stockValid = await validateStock();
+      if (!stockValid) {
+        setCurrentStep("address");
+        setIsProcessing(false);
+        return;
+      }
+
+      const addressData = form.getValues();
+
+      console.log(addressData);
+
+      // TODO: Create order with address and cart data
+      // const orderResponse = await fetch('/api/orders', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({
+      //     items: cart,
+      //     shippingAddress: addressData,
+      //     billingAddress: addressData,
+      //     subtotal: cartTotal,
+      //     total: total,
+      //   }),
+      // });
+      // const order = await orderResponse.json();
+
+      // TODO: Process payment
+      // const paymentResponse = await fetch('/api/payment/process', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({
+      //     orderId: order.orderId,
+      //     paymentData: paymentData,
+      //     amount: total,
+      //   }),
+      // });
+      // const payment = await paymentResponse.json();
+
+      // TODO: Update order with payment info
+      // await fetch(`/api/orders/${order.orderId}`, {
+      //   method: 'PATCH',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({
+      //     paymentId: payment.paymentId,
+      //     transactionId: payment.transactionId,
+      //     paymentStatus: 'completed',
+      //   }),
+      // });
+
+      // Clear cart and redirect to success page
+      localStorage.removeItem("cart");
+      router.push("/checkout/success");
+    } catch (error) {
+      console.error("Error during payment processing:", error);
+      // Handle payment error
+    } finally {
+      setIsProcessing(false);
     }
+  };
 
-    localStorage.removeItem("cart");
-    router.push("/checkout/success");
+  // Go back to address step
+  const goBackToAddress = () => {
+    setCurrentStep("address");
   };
 
   const cartTotal = cart.reduce(
@@ -118,22 +164,30 @@ export function useCheckout() {
     0,
   );
 
-  const shipping = 10;
-  const total = cartTotal + shipping;
+  const total = cartTotal;
 
   return {
+    // Form
+    form,
+    handleAddressSubmit,
+    handlePaymentSubmit,
+
+    // State
     cart,
     currentStep,
     setCurrentStep,
-    formData,
-    setFormData,
-    handleInputChange,
-    handleSubmit,
-    cartTotal,
-    shipping,
-    total,
-    isBuyNow,
     stockErrors,
+    isProcessing,
+
+    // Calculations
+    cartTotal,
+    total,
+
+    // Flags
+    isBuyNow,
+
+    // Actions
     validateStock,
+    goBackToAddress,
   };
 }

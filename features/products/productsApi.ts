@@ -60,7 +60,7 @@ export const productsApi = createApi({
     buyNow: builder.mutation<
       ApiResponse<{
         success: boolean;
-        availableStock: number;
+        reservationId: string;
       }>,
       { productId: string; quantity: number }
     >({
@@ -91,8 +91,8 @@ export const productsApi = createApi({
     // Add to cart
     addToCart: builder.mutation<
       ApiResponse<{ success: boolean; message: string }>,
-      { 
-        productId: string; 
+      {
+        productId: string;
         quantity: number;
         selectedSize?: string;
         selectedColor?: string;
@@ -101,11 +101,11 @@ export const productsApi = createApi({
       query: ({ productId, quantity, selectedSize, selectedColor }) => ({
         url: `/cart/items`,
         method: "POST",
-        body: { 
-          productId, 
+        body: {
+          productId,
           quantity,
           selectedSize,
-          selectedColor
+          selectedColor,
         },
       }),
       invalidatesTags: ["Cart"],
@@ -118,6 +118,7 @@ export const productsApi = createApi({
           id: string;
           product: Product;
           quantity: number;
+
           selectedSize: string;
           selectedColor: string;
         }>;

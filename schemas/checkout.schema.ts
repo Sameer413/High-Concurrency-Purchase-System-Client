@@ -16,9 +16,9 @@ export const checkoutFormSchema = z.object({
   city: z.string().min(1),
   postalCode: z.string().min(4),
 
-  agreeToTerms: z.literal(true, {
-    message: "You must accept terms",
-  }),
+  // agreeToTerms: z.literal(true, {
+  //   message: "You must accept terms",
+  // }),
 });
 
-export type CheckoutFormSchema = z.infer<typeof checkoutFormSchema>;
+export type CheckoutFormData = z.infer<typeof checkoutFormSchema>;
