@@ -6,6 +6,13 @@ type GetProductsParams = {
   page?: number;
   limit?: number;
   search?: string;
+  category?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  colors?: string; // Comma-separated: "Black,White,Blue"
+  newOnly?: boolean;
+  inStockOnly?: boolean;
+  sortBy?: 'price-asc' | 'price-desc' | 'name' | 'newest' | 'rating';
 };
 
 type ApiResponse<T> = {
@@ -30,6 +37,13 @@ export const productsApi = createApi({
           page: params?.page,
           limit: params?.limit,
           search: params?.search,
+          category: params?.category,
+          minPrice: params?.minPrice,
+          maxPrice: params?.maxPrice,
+          colors: params?.colors,
+          newOnly: params?.newOnly,
+          inStockOnly: params?.inStockOnly,
+          sortBy: params?.sortBy,
         },
       }),
       providesTags: ["Product"],
@@ -56,37 +70,90 @@ export const productsApi = createApi({
       ],
     }),
 
-    // Stock reservation for 15 minutes when user clicks "Buy Now"
+    // Stock reservation with buyV2 - creates time-limited reservation
     buyNow: builder.mutation<
       ApiResponse<{
         success: boolean;
         reservationId: string;
+        expireAt: Date;
       }>,
-      { productId: string; quantity: number }
+      {
+        items: Array<{
+          productId: string;
+          quantity: number;
+          unitPrice: number;
+          totalPrice: number;
+          currency: "INR";
+          productName: string;
+          productImage?: string;
+          variantId?: string;
+          selectedSize?: string;
+          selectedColor?: string;
+        }>;
+      }
     >({
-      query: ({ productId, quantity }) => ({
-        url: `/products/${productId}/buy`,
+      query: ({ items }) => ({
+        url: `/products/buy`,
         method: "POST",
-        body: { quantity },
+        body: { items },
       }),
-      invalidatesTags: (result, error, { productId }) => [
-        { type: "ProductAvailability", id: productId },
-        { type: "Product", id: productId },
-      ],
-      onQueryStarted: async ({ productId }, { dispatch, queryFulfilled }) => {
+      invalidatesTags: (result, error, { items }) => {
+        // Invalidate cache for all products in the reservation
+        const tags: any[] = [];
+        items.forEach((item) => {
+          tags.push(
+            { type: "ProductAvailability", id: item.productId },
+            { type: "Product", id: item.productId }
+          );
+        });
+        return tags;
+      },
+      onQueryStarted: async ({ items }, { dispatch, queryFulfilled }) => {
         try {
           await queryFulfilled;
         } catch {
           // Even if the mutation fails, invalidate the cache
-          dispatch(
-            productsApi.util.invalidateTags([
-              { type: "ProductAvailability", id: productId },
-              { type: "Product", id: productId },
-            ]),
-          );
+          const tags: any[] = [];
+          items.forEach((item) => {
+            tags.push(
+              { type: "ProductAvailability", id: item.productId },
+              { type: "Product", id: item.productId }
+            );
+          });
+          dispatch(productsApi.util.invalidateTags(tags));
         }
       },
     }),
+    // buyNow: builder.mutation<
+    //   ApiResponse<{
+    //     success: boolean;
+    //     reservationId: string;
+    //   }>,
+    //   { productId: string; quantity: number }
+    // >({
+    //   query: ({ productId, quantity }) => ({
+    //     url: `/products/${productId}/buy`,
+    //     method: "POST",
+    //     body: { quantity },
+    //   }),
+    //   invalidatesTags: (result, error, { productId }) => [
+    //     { type: "ProductAvailability", id: productId },
+    //     { type: "Product", id: productId },
+    //   ],
+    //   onQueryStarted: async ({ productId }, { dispatch, queryFulfilled }) => {
+    //     try {
+    //       await queryFulfilled;
+    //     } catch {
+    //       // Even if the mutation fails, invalidate the cache
+    //       dispatch(
+    //         productsApi.util.invalidateTags([
+    //           { type: "ProductAvailability", id: productId },
+    //           { type: "Product", id: productId },
+    //         ]),
+    //       );
+    //     }
+    //   },
+    // }),
 
     // Add to cart
     addToCart: builder.mutation<
@@ -163,6 +230,32 @@ export const productsApi = createApi({
       }),
       invalidatesTags: ["Cart"],
     }),
+
+    // Get reservation details by ID
+    getReservation: builder.query<
+      ApiResponse<{
+        reservationId: string;
+        userId: string;
+        items: Array<{
+          productId: string;
+          productName: string;
+          quantity: number;
+          unitPrice: number;
+          totalPrice: number;
+        }>;
+        totalAmount: number;
+        currency: string;
+        createdAt: number;
+        expireAt: number;
+        version: number;
+      }>,
+      string
+    >({
+      query: (reservationId) => ({
+        url: `/products/reservations/${reservationId}`,
+        method: "GET",
+      }),
+    }),
   }),
 });
 
@@ -175,4 +268,5 @@ export const {
   useGetCartQuery,
   useRemoveFromCartMutation,
   useUpdateCartQuantityMutation,
+  useGetReservationQuery,
 } = productsApi;

@@ -20,11 +20,7 @@ interface AuthResponse {
   tokenType: string;
 }
 
-interface RefreshResponse {
-  accessToken: string;
-  expiresIn: number;
-  tokenType: string;
-}
+
 
 interface UserResponse {
   success: boolean;
@@ -99,29 +95,10 @@ export const authApi = createApi({
         }
       },
     }),
-    refreshAccessToken: builder.mutation<RefreshResponse, void>({
-      query: () => ({
-        url: "/refresh",
-        method: "POST",
-      }),
-      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
-        try {
-          const { data } = await queryFulfilled;
-          dispatch(
-            setTokens({
-              accessToken: data.accessToken,
-              refreshToken: "from-cookie",
-              expiresIn: data.expiresIn,
-            })
-          );
-        } catch (error) {
-          console.error("Token refresh failed:", error);
-          // Don't clear auth here - let the user continue with existing token
-        }
-      },
-    }),
     getCurrentUser: builder.query<UserResponse, void>({
       query: () => "/me",
+      // Keep cached data for 5 minutes
+      keepUnusedDataFor: 300,
     }),
   }),
   refetchOnMountOrArgChange: 30,
@@ -131,6 +108,5 @@ export const {
   useLoginMutation,
   useRegisterMutation,
   useLogoutMutation,
-  useRefreshAccessTokenMutation,
   useGetCurrentUserQuery,
 } = authApi;

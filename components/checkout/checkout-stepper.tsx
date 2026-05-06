@@ -14,7 +14,7 @@ const steps: {
   label: string;
 }[] = [
   { key: "address", label: "Address" },
-  { key: "payment", label: "Payment" },
+  { key: "detail", label: "Payment" },
 ];
 
 export default function CheckoutStepper({ currentStep }: CheckoutStepperProps) {

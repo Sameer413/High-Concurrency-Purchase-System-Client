@@ -1,4 +1,4 @@
-export type CheckoutStep = "address" | "payment";
+export type CheckoutStep = "address" | "detail";
 
 export interface CartItem {
   productId: string;

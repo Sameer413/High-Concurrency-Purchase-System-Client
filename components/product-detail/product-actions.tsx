@@ -97,11 +97,11 @@ const ProductActions = ({
       {/* Buy Now */}
       <BuyNowButton
         product={product}
-        selectedSize={selectedSize}
-        selectedColor={selectedColor}
         quantity={quantity}
         disabled={isDisabled || (availability && !availability.canBuy)}
         onSuccess={onBuyNowSuccess}
+        selectedSize={selectedSize}
+        selectedColor={selectedColor}
         className="h-12 w-full text-sm font-semibold tracking-wide bg-black text-white hover:bg-black/90"
       />
 

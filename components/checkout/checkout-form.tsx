@@ -2,19 +2,21 @@
 
 import { Button } from "@/components/ui/button";
 import InformationStep from "./information-step";
-import PaymentStep from "./payment-step";
+import PaymentStep from "./order-detail";
 import { UseFormReturn } from "react-hook-form";
 import { CheckoutFormData } from "@/schemas/checkout.schema";
 import { CheckoutStep } from "@/app/checkout/types";
+import OrderDetail from "./order-detail";
 
 interface CheckoutFormProps {
   currentStep: CheckoutStep;
   form: UseFormReturn<CheckoutFormData>;
   handleAddressSubmit: (data: CheckoutFormData) => Promise<void>;
-  handlePaymentSubmit: (paymentData: any) => Promise<void>;
+  handlePaymentSubmit: () => Promise<void>;
   isProcessing: boolean;
   goBackToAddress: () => void;
   stockErrors: string[];
+  reservationExpired?: boolean;
 }
 
 export default function CheckoutForm({
@@ -25,6 +27,7 @@ export default function CheckoutForm({
   isProcessing,
   goBackToAddress,
   stockErrors,
+  reservationExpired = false,
 }: CheckoutFormProps) {
   return (
     <div>
@@ -45,35 +48,11 @@ export default function CheckoutForm({
         <form onSubmit={form.handleSubmit(handleAddressSubmit)}>
           <InformationStep form={form} isProcessing={isProcessing} />
 
-          {/* Terms and Conditions */}
-          <div className="mt-6">
-            <label className="flex items-start gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                className="mt-1"
-                disabled={isProcessing}
-                {...form.register("agreeToTerms")}
-              />
-              <span className="text-sm">
-                I agree to the{" "}
-                <a href="/terms" className="text-blue-600 hover:underline">
-                  terms and conditions
-                </a>{" "}
-                <span className="text-red-500">*</span>
-              </span>
-            </label>
-            {form.formState.errors.agreeToTerms && (
-              <p className="text-sm text-red-500 mt-1 ml-6">
-                {form.formState.errors.agreeToTerms.message}
-              </p>
-            )}
-          </div>
-
           <div className="mt-8">
             <Button
               type="submit"
               className="w-full"
-              disabled={isProcessing}
+              disabled={isProcessing || reservationExpired}
             >
               {isProcessing ? "Validating..." : "Continue to Payment"}
             </Button>
@@ -81,12 +60,13 @@ export default function CheckoutForm({
         </form>
       )}
 
-      {/* Payment Step */}
-      {currentStep === "payment" && (
+      {/* Order detail Step */}
+      {currentStep === "detail" && (
         <div>
-          <PaymentStep
+          <OrderDetail
             onSubmit={handlePaymentSubmit}
             isProcessing={isProcessing}
+            address={form.getValues()}
           />
 
           <div className="mt-8 flex gap-4">

@@ -1,57 +1,54 @@
 import { store } from "@/store";
-import { refreshAccessToken, clearAuth, checkTokenExpiration } from "@/features/auth/authSlice";
+import { setTokens, clearAuth, checkTokenExpiration } from "@/features/auth/authSlice";
+import { API_FULL_URL } from "@/lib/config";
 
 class TokenRefreshManager {
-  private refreshTimer: NodeJS.Timeout | null = null;
   private checkInterval: NodeJS.Timeout | null = null;
+  private refreshTimer: NodeJS.Timeout | null = null;
   private isRefreshing = false;
 
   /**
-   * Start automatic token refresh
-   * Checks token expiration every minute and refreshes when needed
+   * Start automatic token refresh.
+   * Checks token expiration every minute and proactively refreshes
+   * 5 minutes before the access token expires (via httpOnly cookie).
    */
   start() {
-    this.stop(); // Clear any existing timers
+    this.stop(); // clear any existing timers
 
-    // Check token expiration every minute
+    // Periodic expiration check every 60 seconds
     this.checkInterval = setInterval(() => {
       this.checkAndRefreshToken();
-    }, 60000); // Check every 1 minute
+    }, 60_000);
 
     // Initial check
     this.checkAndRefreshToken();
   }
 
   /**
-   * Stop automatic token refresh
+   * Stop automatic token refresh.
    */
   stop() {
-    if (this.refreshTimer) {
-      clearTimeout(this.refreshTimer);
-      this.refreshTimer = null;
-    }
-
     if (this.checkInterval) {
       clearInterval(this.checkInterval);
       this.checkInterval = null;
     }
-
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+    }
     this.isRefreshing = false;
   }
 
   /**
-   * Check if token needs refresh and refresh if necessary
+   * If the access token expires within 5 minutes, proactively refresh.
    */
   private async checkAndRefreshToken() {
-    const state = store.getState();
-    const { isAuthenticated, tokenExpiresAt, refreshToken } = state.auth;
+    const { isAuthenticated, tokenExpiresAt } = store.getState().auth;
 
-    // Don't refresh if not authenticated or already refreshing
-    if (!isAuthenticated || !refreshToken || this.isRefreshing) {
-      return;
-    }
+    if (!isAuthenticated || this.isRefreshing) return;
 
-    // Check if token expires in less than 5 minutes
+    store.dispatch(checkTokenExpiration());
+
     const now = Date.now();
     const fiveMinutes = 5 * 60 * 1000;
 
@@ -61,17 +58,42 @@ class TokenRefreshManager {
   }
 
   /**
-   * Manually trigger token refresh
+   * Perform a cookie-based token refresh.
+   * The browser sends the httpOnly `refresh_token` cookie automatically.
+   * On success, stores the new access token in Redux.
+   * On failure, clears auth and stops the manager.
    */
   async refreshToken(): Promise<boolean> {
-    if (this.isRefreshing) {
-      return false;
-    }
+    if (this.isRefreshing) return false;
 
     this.isRefreshing = true;
 
     try {
-      await store.dispatch(refreshAccessToken()).unwrap();
+      const res = await fetch(`${API_FULL_URL}/auth/refresh`, {
+        method: "POST",
+        credentials: "include", // sends the httpOnly refresh_token cookie
+      });
+
+      if (!res.ok) {
+        throw new Error(`Refresh failed: ${res.status}`);
+      }
+
+      const data: { accessToken: string; expiresIn: number; tokenType: string } =
+        await res.json();
+
+      store.dispatch(
+        setTokens({
+          accessToken: data.accessToken,
+          expiresIn: data.expiresIn,
+        })
+      );
+
+      // Schedule next refresh
+      const { tokenExpiresAt } = store.getState().auth;
+      if (tokenExpiresAt) {
+        this.scheduleNextRefresh(tokenExpiresAt);
+      }
+
       this.isRefreshing = false;
       return true;
     } catch (error) {
@@ -84,67 +106,44 @@ class TokenRefreshManager {
   }
 
   /**
-   * Schedule next refresh based on token expiration
+   * Schedule a one-shot refresh 5 minutes before token expiry.
    */
   private scheduleNextRefresh(expiresAt: number) {
-    if (this.refreshTimer) {
-      clearTimeout(this.refreshTimer);
-    }
+    if (this.refreshTimer) clearTimeout(this.refreshTimer);
 
-    const now = Date.now();
-    const timeUntilExpiry = expiresAt - now;
-
-    // Refresh 5 minutes before expiry
-    const refreshTime = Math.max(0, timeUntilExpiry - 5 * 60 * 1000);
+    const refreshIn = Math.max(0, expiresAt - Date.now() - 5 * 60 * 1000);
 
     this.refreshTimer = setTimeout(() => {
       this.refreshToken();
-    }, refreshTime);
+    }, refreshIn);
   }
 
-  /**
-   * Check if token is expired
-   */
+  /** Returns true if the current access token is expired. */
   isTokenExpired(): boolean {
-    const state = store.getState();
-    const { tokenExpiresAt } = state.auth;
-
-    if (!tokenExpiresAt) {
-      return true;
-    }
-
+    const { tokenExpiresAt } = store.getState().auth;
+    if (!tokenExpiresAt) return true;
     return Date.now() >= tokenExpiresAt;
   }
 
-  /**
-   * Get time until token expires (in milliseconds)
-   */
+  /** Returns ms until the access token expires (0 if already expired). */
   getTimeUntilExpiry(): number {
-    const state = store.getState();
-    const { tokenExpiresAt } = state.auth;
-
-    if (!tokenExpiresAt) {
-      return 0;
-    }
-
+    const { tokenExpiresAt } = store.getState().auth;
+    if (!tokenExpiresAt) return 0;
     return Math.max(0, tokenExpiresAt - Date.now());
   }
 }
 
-// Export singleton instance
+// Singleton
 export const tokenRefreshManager = new TokenRefreshManager();
 
-// Auto-start on module load if authenticated
+// Auto-start if the Redux store already has an authenticated session
+// (e.g. page reload where AuthProvider has already hydrated state)
 if (typeof window !== "undefined") {
-  const savedAuth = localStorage.getItem("auth");
-  if (savedAuth) {
-    try {
-      const parsed = JSON.parse(savedAuth);
-      if (parsed.accessToken && parsed.refreshToken) {
-        tokenRefreshManager.start();
-      }
-    } catch (e) {
-      console.error("Failed to parse auth from localStorage");
+  // Defer to after the store has been populated by AuthProvider
+  setTimeout(() => {
+    const { isAuthenticated } = store.getState().auth;
+    if (isAuthenticated) {
+      tokenRefreshManager.start();
     }
-  }
+  }, 0);
 }

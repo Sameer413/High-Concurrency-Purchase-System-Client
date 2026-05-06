@@ -23,8 +23,12 @@ export interface Product {
   reviews: number;
 
   isNew: boolean;
-  stock: number;
   isActive: boolean;
+
+  // Inventory fields (returned from API)
+  availableStock?: number;
+  totalStock?: number;
+  isAvailable?: boolean;
 
   createdAt?: string;
   updatedAt?: string;

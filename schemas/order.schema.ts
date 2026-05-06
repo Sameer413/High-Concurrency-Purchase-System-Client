@@ -2,8 +2,8 @@ import { z } from "zod";
 import { addressSchema } from "./address.schema";
 
 export const orderSchema = z.object({
-  reservationId: z.string(),
-  customerEmail: z.email(),
+  reservationId: z.string().optional(),
+  customerEmail: z.string().email(),
   customerPhone: z
     .string()
     .min(10, "Phone must be at least 10 digits")

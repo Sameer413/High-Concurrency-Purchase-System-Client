@@ -8,7 +8,7 @@ export const addressSchema = z.object({
     .regex(/^\d+$/, "Phone must be numeric"),
   line1: z.string(),
   line2: z.string().optional(),
-  landmark: z.string(),
+  landmark: z.string().optional(),
   city: z.string(),
   state: z.string(),
   postalCode: z.string(),

@@ -14,28 +14,27 @@ interface Product {
 
 interface BuyNowButtonProps {
   product: Product;
-  selectedSize: string;
-  selectedColor: string;
   quantity?: number;
   disabled?: boolean;
   className?: string;
   onSuccess?: () => void;
+  selectedSize?: string;
+  selectedColor?: string;
 }
 
 export function BuyNowButton({
   product,
-  selectedSize,
-  selectedColor,
   quantity = 1,
   disabled = false,
   className = "",
   onSuccess,
+  selectedSize,
+  selectedColor,
 }: BuyNowButtonProps) {
   const router = useRouter();
   const [error, setError] = useState<string>("");
 
-  const [handleBuyNowMutation, { data, isLoading, error: mutationError }] =
-    useBuyNowMutation();
+  const [handleBuyNowMutation, { isLoading }] = useBuyNowMutation();
 
   const handleBuyNow = async () => {
     if (disabled || isLoading) return;
@@ -43,39 +42,36 @@ export function BuyNowButton({
     setError("");
 
     try {
+      // Build the complete ReservationItemDTO
+      const unitPrice = product.price;
+      const totalPrice = unitPrice * quantity;
+
       const result = await handleBuyNowMutation({
-        productId: product.id,
-        quantity,
+        items: [
+          {
+            productId: product.id,
+            quantity,
+            unitPrice,
+            totalPrice,
+            currency: "INR",
+            productName: product.name,
+            selectedSize,
+            selectedColor,
+          },
+        ],
       }).unwrap();
 
-      if (result.success || result.data?.success) {
-        console.log("✅ Success - navigating to checkout");
+      if (result.success && result.data?.reservationId) {
         // Notify parent of success to skip refetches
         onSuccess?.();
 
-        // Create a cart item structure for checkout
-        const checkoutItem = {
-          productId: product.id,
-          product: {
-            id: product.id,
-            name: product.name,
-            price: product.price,
-            image: product.image,
-          },
-          quantity,
-          selectedSize,
-          selectedColor,
-        };
-
-        // Encode the product data and navigate to checkout
-        router.push(
-          `/checkout?buyNow=true&productId=${product.id}&reservationId=${data?.data.reservationId}`,
-        );
+        // Navigate to checkout with only reservationId
+        router.push(`/checkout?reservationId=${result.data.reservationId}`);
       } else {
-        // const available = result.data?.availableStock ?? 0;
-        const available = result.data?.success ? 0 : 0;
+        setError("Failed to create reservation. Please try again.");
       }
     } catch (err: any) {
+      console.error("Buy now error:", err);
       setError(
         err?.data?.message || "Failed to reserve stock. Please try again.",
       );

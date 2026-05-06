@@ -26,7 +26,7 @@ function CartItem({
       id: string;
       name: string;
       price: number;
-      image: string;
+      image: string | null;
     };
     quantity: number;
     selectedSize: string;

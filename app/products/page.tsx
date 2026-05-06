@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { SlidersHorizontal, ChevronDown, X } from "lucide-react";
+import { SlidersHorizontal, ChevronDown, X, Search, Loader2 } from "lucide-react";
 // import { Header } from "@/components/common/header";
 import { Footer } from "@/components/common/footer";
 import { ProductCard } from "@/components/common/product-card";
@@ -25,7 +25,7 @@ import { Slider } from "@/components/ui/slider";
 import { useGetProductsQuery } from "@/features/products/productsApi";
 import { categories } from "@/lib/products";
 
-type SortOption = "default" | "price-asc" | "price-desc" | "name";
+type SortOption = "default" | "price-asc" | "price-desc" | "name" | "newest" | "rating";
 
 export default function ProductsPage() {
   const searchParams = useSearchParams();
@@ -43,21 +43,87 @@ export default function ProductsPage() {
   const [showNewOnly, setShowNewOnly] = useState(newOnly);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [searchInput, setSearchInput] = useState(search); // Local search input
+  const [debouncedSearch, setDebouncedSearch] = useState(search); // Debounced search for API
+  const [isSearching, setIsSearching] = useState(false); // Search loading state
 
   const [page, setPage] = useState(1);
   const limit = 20;
 
-  // API CALL
-  const { data, isLoading, isError } = useGetProductsQuery({
+  // Debounce search input
+  useEffect(() => {
+    if (searchInput !== debouncedSearch) {
+      setIsSearching(true);
+    }
+
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchInput);
+      setIsSearching(false);
+    }, 500); // 500ms delay
+
+    return () => clearTimeout(timer);
+  }, [searchInput, debouncedSearch]);
+
+  // Build API query parameters
+  const apiParams = useMemo(() => {
+    const params: any = {
+      page,
+      limit,
+      inStockOnly: true, // Always show only in-stock items
+    };
+
+    if (debouncedSearch) {
+      params.search = debouncedSearch;
+    }
+
+    if (sortBy && sortBy !== "default") {
+      params.sortBy = sortBy;
+    }
+
+    if (selectedCategory !== "All") {
+      params.category = selectedCategory;
+    }
+
+    if (showNewOnly) {
+      params.newOnly = true;
+    }
+
+    if (priceRange[0] > 0 || priceRange[1] < 5000) {
+      params.minPrice = priceRange[0];
+      params.maxPrice = priceRange[1];
+    }
+
+    if (selectedColors.length > 0) {
+      params.colors = selectedColors.join(",");
+    }
+
+    return params;
+  }, [
     page,
-    limit,
-    search,
-  });
+    debouncedSearch,
+    selectedCategory,
+    sortBy,
+    priceRange,
+    showNewOnly,
+    selectedColors,
+  ]);
+
+  // API CALL with filters
+  const { data, isLoading, isError, error } = useGetProductsQuery(apiParams);
 
   const products = (data?.data || []).map((p) => ({
     ...p,
-    originalPrice: p.originalPrice ?? undefined,
+    originalPrice: p.originalPrice ?? null,
   }));
+
+  // No need for client-side filtering anymore - API handles it
+  const filteredProducts = products;
+
+  // Log for debugging
+  useEffect(() => {
+    console.log('API Params:', apiParams);
+    console.log('Products count:', products.length);
+  }, [apiParams, products.length]);
 
   // favorites load
   useEffect(() => {
@@ -72,7 +138,7 @@ export default function ProductsPage() {
     }
   }, []);
 
-  // collect all colors
+  // collect all colors from current products
   const allColors = useMemo(() => {
     const colors = new Set<string>();
 
@@ -82,58 +148,6 @@ export default function ProductsPage() {
 
     return Array.from(colors);
   }, [products]);
-
-  // frontend filters + sorting
-  const filteredProducts = useMemo(() => {
-    let filtered = [...products];
-
-    // category
-    if (selectedCategory !== "All") {
-      filtered = filtered.filter((p: any) => p.category === selectedCategory);
-    }
-
-    // new only
-    if (showNewOnly) {
-      filtered = filtered.filter((p: any) => p.isNew);
-    }
-
-    // price
-    filtered = filtered.filter(
-      (p: any) =>
-        Number(p.price) >= priceRange[0] && Number(p.price) <= priceRange[1],
-    );
-
-    // colors
-    if (selectedColors.length > 0) {
-      filtered = filtered.filter((p: any) =>
-        p.colors?.some((c: string) => selectedColors.includes(c)),
-      );
-    }
-
-    // sort
-    switch (sortBy) {
-      case "price-asc":
-        filtered.sort((a: any, b: any) => Number(a.price) - Number(b.price));
-        break;
-
-      case "price-desc":
-        filtered.sort((a: any, b: any) => Number(b.price) - Number(a.price));
-        break;
-
-      case "name":
-        filtered.sort((a: any, b: any) => a.name.localeCompare(b.name));
-        break;
-    }
-
-    return filtered;
-  }, [
-    products,
-    selectedCategory,
-    sortBy,
-    priceRange,
-    showNewOnly,
-    selectedColors,
-  ]);
 
   const toggleColor = (color: string) => {
     setSelectedColors((prev) =>
@@ -156,17 +170,19 @@ export default function ProductsPage() {
   const clearFilters = () => {
     setSelectedCategory("All");
     setSortBy("default");
-    setPriceRange([0, 500]);
+    setPriceRange([0, 5000]);
     setShowNewOnly(false);
     setSelectedColors([]);
+    setSearchInput("");
   };
 
   const hasActiveFilters =
     selectedCategory !== "All" ||
     showNewOnly ||
     priceRange[0] > 0 ||
-    priceRange[1] < 500 ||
-    selectedColors.length > 0;
+    priceRange[1] < 5000 ||
+    selectedColors.length > 0 ||
+    searchInput.trim() !== "";
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -181,14 +197,27 @@ export default function ProductsPage() {
           <div className="flex flex-col md:flex-row gap-8">
             {/* Desktop Sidebar */}
             <aside className="hidden md:block w-64 shrink-0">
-              <div className="sticky top-24 space-y-8">
+              <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto space-y-8 pr-2">
                 {/* Search */}
-                <div>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <input
                     type="text"
-                    placeholder="Search"
-                    className="w-full px-4 py-2 bg-secondary rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-foreground"
+                    placeholder="Search products..."
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    className="w-full pl-10 pr-10 py-2 bg-secondary rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-foreground"
                   />
+                  {isSearching ? (
+                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground animate-spin" />
+                  ) : searchInput ? (
+                    <button
+                      onClick={() => setSearchInput("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  ) : null}
                 </div>
 
                 {/* Categories */}
@@ -257,11 +286,11 @@ export default function ProductsPage() {
                   <div className="space-y-2">
                     <label className="flex items-center gap-2 text-sm">
                       <Checkbox defaultChecked />
-                      <span>In Stock ({products.length})</span>
+                      <span>In Stock ({filteredProducts.filter(p => p.isAvailable).length})</span>
                     </label>
                     <label className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Checkbox />
-                      <span>Out of Stock (0)</span>
+                      <span>Out of Stock ({filteredProducts.filter(p => !p.isAvailable).length})</span>
                     </label>
                   </div>
                 </div>
@@ -364,7 +393,14 @@ export default function ProductsPage() {
             <div className="flex-1">
               {/* Toolbar */}
               <div className="flex items-center justify-between mb-6 gap-4">
-                <h1 className="text-2xl font-bold">Products</h1>
+                <div>
+                  <h1 className="text-2xl font-bold">Products</h1>
+                  {!isLoading && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {filteredProducts.length} {filteredProducts.length === 1 ? 'product' : 'products'} found
+                    </p>
+                  )}
+                </div>
 
                 <div className="flex items-center gap-2">
                   {/* Mobile Filters */}
@@ -385,6 +421,28 @@ export default function ProductsPage() {
                         <SheetTitle>Filters</SheetTitle>
                       </SheetHeader>
                       <div className="mt-6 space-y-8">
+                        {/* Mobile Search */}
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <input
+                            type="text"
+                            placeholder="Search products..."
+                            value={searchInput}
+                            onChange={(e) => setSearchInput(e.target.value)}
+                            className="w-full pl-10 pr-10 py-2 bg-secondary rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-foreground"
+                          />
+                          {isSearching ? (
+                            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground animate-spin" />
+                          ) : searchInput ? (
+                            <button
+                              onClick={() => setSearchInput("")}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          ) : null}
+                        </div>
+
                         {/* Mobile Categories */}
                         <div>
                           <h3 className="font-semibold mb-4">Categories</h3>
@@ -507,13 +565,19 @@ export default function ProductsPage() {
                         Default
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setSortBy("price-asc")}>
-                        Less to more
+                        Price: Low to High
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setSortBy("price-desc")}>
-                        More to less
+                        Price: High to Low
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setSortBy("name")}>
-                        Name A-Z
+                        Name: A-Z
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSortBy("newest")}>
+                        Newest First
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSortBy("rating")}>
+                        Highest Rated
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -523,6 +587,17 @@ export default function ProductsPage() {
               {/* Active Filters */}
               {hasActiveFilters && (
                 <div className="flex flex-wrap items-center gap-2 mb-6">
+                  {searchInput && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="gap-1"
+                      onClick={() => setSearchInput("")}
+                    >
+                      Search: "{searchInput}"
+                      <X className="h-3 w-3" />
+                    </Button>
+                  )}
                   {selectedCategory !== "All" && (
                     <Button
                       variant="secondary"
@@ -564,26 +639,49 @@ export default function ProductsPage() {
               )}
 
               {/* Products Grid */}
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                {filteredProducts.map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    isFavorite={favorites.includes(product.id)}
-                    onToggleFavorite={toggleFavorite}
-                  />
-                ))}
-              </div>
-
-              {filteredProducts.length === 0 && (
+              {isLoading ? (
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i} className="animate-pulse">
+                      <div className="bg-secondary rounded-lg h-64 mb-4"></div>
+                      <div className="bg-secondary rounded h-4 mb-2"></div>
+                      <div className="bg-secondary rounded h-4 w-2/3"></div>
+                    </div>
+                  ))}
+                </div>
+              ) : isError ? (
                 <div className="text-center py-16">
-                  <p className="text-muted-foreground">
-                    No products found matching your filters.
+                  <p className="text-red-500 mb-4">
+                    Error loading products. Please try again.
                   </p>
-                  <Button variant="link" onClick={clearFilters}>
-                    Clear filters
+                  <Button onClick={() => window.location.reload()}>
+                    Reload Page
                   </Button>
                 </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                    {filteredProducts.map((product) => (
+                      <ProductCard
+                        key={product.id}
+                        product={product}
+                        isFavorite={favorites.includes(product.id)}
+                        onToggleFavorite={toggleFavorite}
+                      />
+                    ))}
+                  </div>
+
+                  {filteredProducts.length === 0 && (
+                    <div className="text-center py-16">
+                      <p className="text-muted-foreground">
+                        No products found matching your filters.
+                      </p>
+                      <Button variant="link" onClick={clearFilters}>
+                        Clear filters
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>

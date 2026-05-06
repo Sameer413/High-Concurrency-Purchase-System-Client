@@ -5,7 +5,6 @@ import {
   useLoginMutation,
   useRegisterMutation,
   useLogoutMutation,
-  useRefreshAccessTokenMutation,
   useGetCurrentUserQuery,
 } from "./authApi";
 
@@ -34,7 +33,7 @@ export const useAuthActions = () => {
     clearError: () => dispatch(clearError()),
     clearAuth: () => dispatch(clearAuth()),
     setTokens: (accessToken: string, expiresIn: number) =>
-      dispatch(setTokens({ accessToken, refreshToken: "from-cookie", expiresIn })),
+      dispatch(setTokens({ accessToken, expiresIn })),
   };
 };
 
@@ -49,14 +48,17 @@ export const useAuth = () => {
   const [loginApi, loginResult] = useLoginMutation();
   const [registerApi, registerResult] = useRegisterMutation();
   const [logoutApi, logoutResult] = useLogoutMutation();
-  const [refreshApi, refreshResult] = useRefreshAccessTokenMutation();
 
   const {
     data: currentUserData,
     refetch: refetchCurrentUser,
     isLoading: isLoadingUser,
   } = useGetCurrentUserQuery(undefined, {
+    // Fetch whenever the user becomes authenticated (also re-runs after refresh on reload)
     skip: !isAuthenticated,
+    refetchOnMountOrArgChange: true,
+    refetchOnFocus: false,
+    refetchOnReconnect: true,
   });
 
   // Helper to extract error message
@@ -102,21 +104,9 @@ export const useAuth = () => {
     try {
       await logoutApi().unwrap();
     } catch (error) {
+      // Clear auth even if the server call fails
+      dispatch(clearAuth());
       console.error("Logout error:", error);
-    }
-  };
-
-  const handleRefreshToken = async () => {
-    try {
-      await refreshApi().unwrap();
-      return { success: true };
-    } catch (error: any) {
-      // Don't clear auth on refresh failure - the user might still be logged in
-      console.error("Token refresh failed:", error);
-      return {
-        success: false,
-        error: error.data?.message || error.message || "Token refresh failed",
-      };
     }
   };
 
@@ -128,16 +118,13 @@ export const useAuth = () => {
       loginResult.isLoading ||
       registerResult.isLoading ||
       logoutResult.isLoading ||
-      refreshResult.isLoading ||
       isLoadingUser,
     error:
       getErrorMessage(loginResult.error) ||
-      getErrorMessage(registerResult.error) ||
-      getErrorMessage(refreshResult.error),
+      getErrorMessage(registerResult.error),
     login: handleLogin,
     register: handleRegister,
     logout: handleLogout,
-    refreshToken: handleRefreshToken,
     refetchCurrentUser,
   };
 };

@@ -74,35 +74,18 @@ export default function InformationStep({
         <FieldGroup>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field>
-              <FieldLabel htmlFor="firstName">
-                First Name <span className="text-red-500">*</span>
+              <FieldLabel htmlFor="fullName">
+                Full Name <span className="text-red-500">*</span>
               </FieldLabel>
               <Input
-                id="firstName"
+                id="fullName"
                 disabled={isProcessing}
-                className={errors.firstName ? "border-red-500" : ""}
-                {...register("firstName")}
+                className={errors.fullName ? "border-red-500" : ""}
+                {...register("fullName")}
               />
-              {errors.firstName && (
+              {errors.fullName && (
                 <p className="text-sm text-red-500 mt-1">
-                  {errors.firstName.message}
-                </p>
-              )}
-            </Field>
-
-            <Field>
-              <FieldLabel htmlFor="lastName">
-                Last Name <span className="text-red-500">*</span>
-              </FieldLabel>
-              <Input
-                id="lastName"
-                disabled={isProcessing}
-                className={errors.lastName ? "border-red-500" : ""}
-                {...register("lastName")}
-              />
-              {errors.lastName && (
-                <p className="text-sm text-red-500 mt-1">
-                  {errors.lastName.message}
+                  {errors.fullName.message}
                 </p>
               )}
             </Field>
@@ -145,19 +128,19 @@ export default function InformationStep({
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="address">
+            <FieldLabel htmlFor="line1">
               Address <span className="text-red-500">*</span>
             </FieldLabel>
             <Input
-              id="address"
+              id="line1"
               placeholder="Street address"
               disabled={isProcessing}
-              className={errors.address ? "border-red-500" : ""}
-              {...register("address")}
+              className={errors.line1 ? "border-red-500" : ""}
+              {...register("line1")}
             />
-            {errors.address && (
+            {errors.line1 && (
               <p className="text-sm text-red-500 mt-1">
-                {errors.address.message}
+                {errors.line1.message}
               </p>
             )}
           </Field>

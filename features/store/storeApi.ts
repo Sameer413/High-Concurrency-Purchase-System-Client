@@ -1,6 +1,8 @@
 import { Product } from "@/types/types";
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
+export type { Product };
+
 export interface CartItem {
   product: Product;
   quantity: number;

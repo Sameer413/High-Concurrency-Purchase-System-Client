@@ -5,7 +5,35 @@ This document describes the client-side handling of order creation, updates, and
 
 ## Flow Stages
 
-### 1. Cart to Checkout Transition
+### 1. Direct Purchase ("Buy Now") - Stock Reservation
+**When**: User clicks "Buy Now" on a product page
+
+**Information Collected**:
+- Product ID
+- Quantity (default: 1)
+- User authentication status
+
+**API Call**: `POST /api/v1/reservations` (or equivalent endpoint)
+- Creates a temporary stock reservation (locks inventory for a specific duration, e.g., 15 minutes)
+
+**Response Received**:
+```typescript
+{
+  id: string
+  productId: number
+  quantity: number
+  expiresAt: string
+  status: 'pending'
+}
+```
+
+**Saved Where**: 
+- Local component state during transition or Redux store
+- `reservationId` is passed to the checkout page
+
+---
+
+### 2. Cart to Checkout Transition
 **When**: User clicks "Proceed to Checkout" from cart page
 
 **Information Collected**:
@@ -21,7 +49,7 @@ This document describes the client-side handling of order creation, updates, and
 
 ---
 
-### 2. Checkout Form - Shipping Information
+### 3. Checkout Form - Shipping Information
 **When**: User fills out shipping details on checkout page
 
 **Information Collected**:
@@ -47,7 +75,7 @@ This document describes the client-side handling of order creation, updates, and
 
 ---
 
-### 3. Checkout Form - Payment Information
+### 4. Checkout Form - Payment Information
 **When**: User enters payment details
 
 **Information Collected**:
@@ -76,7 +104,7 @@ This document describes the client-side handling of order creation, updates, and
 
 ---
 
-### 4. Order Creation (Pre-Payment)
+### 5. Order Creation (Pre-Payment)
 **When**: User clicks "Place Order" or "Complete Purchase"
 
 **API Endpoint**: `POST /api/orders`
@@ -133,7 +161,7 @@ This document describes the client-side handling of order creation, updates, and
 
 ---
 
-### 5. Payment Processing
+### 6. Payment Processing
 **When**: Immediately after order creation
 
 **Information Sent to Payment Gateway**:
@@ -167,7 +195,7 @@ This document describes the client-side handling of order creation, updates, and
 
 ---
 
-### 6. Order Update (Post-Payment)
+### 7. Order Update (Post-Payment)
 **When**: After successful payment confirmation
 
 **API Endpoint**: `PATCH /api/orders/:orderId`
@@ -201,7 +229,7 @@ This document describes the client-side handling of order creation, updates, and
 
 ---
 
-### 7. Post-Purchase Actions
+### 8. Post-Purchase Actions
 **When**: After successful order update
 
 **Actions Performed**:
