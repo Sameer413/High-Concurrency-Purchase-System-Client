@@ -18,6 +18,8 @@ import { productsApi } from "@/features/products/productsApi";
 import { favoritesApi } from "./features/products/favoriteApi";
 import { paymentApi } from "./features/payment/paymentApi";
 import { orderAPI } from "./features/order/orderApi";
+import { addressApi } from "./features/address/addressApi";
+import { api } from "./lib/apiBase";
 
 // Persist config for payment state
 const paymentPersistConfig = {
@@ -42,6 +44,8 @@ const rootReducer = combineReducers({
   [favoritesApi.reducerPath]: favoritesApi.reducer,
   [paymentApi.reducerPath]: paymentApi.reducer,
   [orderAPI.reducerPath]: orderAPI.reducer,
+  [addressApi.reducerPath]: addressApi.reducer,
+  [api.reducerPath]: api.reducer,
 });
 
 export const store = configureStore({
@@ -56,7 +60,9 @@ export const store = configureStore({
       .concat(productsApi.middleware)
       .concat(favoritesApi.middleware)
       .concat(paymentApi.middleware)
-      .concat(orderAPI.middleware),
+      .concat(orderAPI.middleware)
+      .concat(addressApi.middleware)
+      .concat(api.middleware),
 });
 
 export const persistor = persistStore(store);

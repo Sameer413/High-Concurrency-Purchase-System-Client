@@ -4,7 +4,10 @@ import { API_FULL_URL } from "@/lib/config";
 interface User {
   id: string;
   email: string;
-  name?: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  name?: string; // Keep for backward compatibility
 }
 
 interface AuthState {

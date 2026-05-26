@@ -97,10 +97,33 @@ export const authApi = createApi({
     }),
     getCurrentUser: builder.query<UserResponse, void>({
       query: () => "/me",
+      providesTags: ['User'],
       // Keep cached data for 5 minutes
       keepUnusedDataFor: 300,
     }),
+    updateProfile: builder.mutation<UserResponse, Partial<RegisterCredentials>>({
+      query: (data) => ({
+        url: "/me",
+        method: "PATCH",
+        body: data,
+      }),
+      // Invalidate the getCurrentUser query to refetch updated data
+      onQueryStarted: async (arg, { dispatch, queryFulfilled }) => {
+        try {
+          await queryFulfilled;
+          dispatch(authApi.util.invalidateTags(['User']));
+        } catch {}
+      }
+    }),
+    updatePassword: builder.mutation<{ success: boolean; message: string }, { currentPassword: string; newPassword: string }>({
+      query: (data) => ({
+        url: "/update-password",
+        method: "PATCH",
+        body: data,
+      }),
+    }),
   }),
+  tagTypes: ['User'],
   refetchOnMountOrArgChange: 30,
 });
 
@@ -109,4 +132,6 @@ export const {
   useRegisterMutation,
   useLogoutMutation,
   useGetCurrentUserQuery,
+  useUpdateProfileMutation,
+  useUpdatePasswordMutation,
 } = authApi;
